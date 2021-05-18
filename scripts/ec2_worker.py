@@ -37,7 +37,7 @@ def create_file_stream(source_file: str) -> Union[BinaryIO, None]:
         return object_data
     except Exception as e:
         logging.error(e)
-        return None
+        exit()
 
 
 # upload to files  to glacier
@@ -51,7 +51,7 @@ def upload_s3_glacier(items: list[str]) -> Union[list, None]:
             archive_result.append(archive_response)
         except ClientError as e:
             logging.error(e)
-            return None
+            exit()
         finally:
             file_stream.close()
     return archive_result
