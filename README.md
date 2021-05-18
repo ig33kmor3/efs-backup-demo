@@ -4,8 +4,18 @@
 
 Set the following environment variables:
 
+IaC Variables:
+
 ```bash
+export VPC_ID=XXX
+export ACCOUNT_ID=XXX
+export REGION=XXX
 export WORKER_INSTANCE_ID=XXX
+```
+
+Ec2 Worker Variables
+
+```bash
 export WORKER_AWS_PROFILE=XXX
 export VAULT=XXX
 export SOURCE_DIR=XXX
