@@ -2,6 +2,7 @@ import os
 import logging
 import boto3
 import pathlib
+import re
 from typing import BinaryIO
 from botocore.exceptions import ClientError
 
@@ -14,7 +15,7 @@ SOURCE_DIR = os.environ['SOURCE_DIR']  # throw error if not set
 logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
 
 # configure boto session
-session = boto3.client(profile_name=WORKER_PROFILE)
+session = boto3.Session(profile_name=WORKER_PROFILE)
 
 # configure services being used for operation
 glacier = session.client('glacier')
@@ -23,11 +24,16 @@ sns = session.client('sns')
 # get directory where files are stored
 source_folder = pathlib.Path(SOURCE_DIR)
 
-# list files in directory and store for glacier iteration
+# list files in directory and store for glacier iteration; ignore hidden files
 source_files = []
+hidden_pattern = '^\\..+'
 for root, directories, files in os.walk(source_folder, topdown=False):
     for name in files:
-        source_files.append(os.path.join(root, name))
+        if re.match(hidden_pattern, name):
+            continue
+        filePath = os.path.join(root, name)
+        if os.stat(filePath).st_size > 0:
+            source_files.append(filePath)
 
 
 # convert files to streams
@@ -57,10 +63,12 @@ def upload_s3_glacier(items: list[str]) -> list:
     return archive_result
 
 
-# execute main of the application
+# execute upload to s3 glacier and kickoff job for inventory-retrieval
 archives = upload_s3_glacier(source_files)
 if len(archives) != 0:
+    job = glacier.initiate_job(vaultName=VAULT, jobParameters={'Type': 'inventory-retrieval'})
     for archive in archives:
-        logging.info(f'Archive {archive["archiveId"]} - {archive["location"]} added to {VAULT}')
+        logging.info(f'Archive {archive["archiveId"]} added to {VAULT}')
+    logging.info(f'Inventory started and can be queried at {job["jobId"]}')
 else:
-    logging.info('No archives uploaded.')
+    logging.info('No archives uploaded')

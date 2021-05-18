@@ -15,6 +15,6 @@ class EfsBackupDemoStack(cdk.Stack):
 
         # create lambda -> start ec2 instance
 
-        # create s3 glacier vault
+        # create SNS topic for notifications
 
-        # create SNS topic
+        # create s3 glacier vault and post to SNS topic
