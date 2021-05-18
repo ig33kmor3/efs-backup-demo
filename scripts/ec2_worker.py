@@ -2,7 +2,7 @@ import os
 import logging
 import boto3
 import pathlib
-from typing import Union, BinaryIO
+from typing import BinaryIO
 from botocore.exceptions import ClientError
 
 # set environment variables
@@ -31,7 +31,7 @@ for root, directories, files in os.walk(source_folder, topdown=False):
 
 
 # convert files to streams
-def create_file_stream(source_file: str) -> Union[BinaryIO, None]:
+def create_file_stream(source_file: str) -> BinaryIO:
     try:
         object_data = open(source_file, 'rb')  # need to close this later
         return object_data
@@ -41,7 +41,7 @@ def create_file_stream(source_file: str) -> Union[BinaryIO, None]:
 
 
 # upload to files  to glacier
-def upload_s3_glacier(items: list[str]) -> Union[list, None]:
+def upload_s3_glacier(items: list[str]) -> list:
     archive_result = []
     for item in items:
         file_stream = create_file_stream(item)
