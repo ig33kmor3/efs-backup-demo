@@ -1,5 +1,16 @@
 # AWS EFS IaC and Backup to S3 Glacier
 
+## Setup
+
+Set the following environment variables:
+
+```bash
+export WORKER_INSTANCE_ID=XXX
+export WORKER_AWS_PROFILE=XXX
+export VAULT=XXX
+export SOURCE_DIR=XXX
+```
+
 ## Development 
 
 Install the CDK for IaC:

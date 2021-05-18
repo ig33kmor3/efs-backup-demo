@@ -11,5 +11,10 @@ class EfsBackupDemoStack(cdk.Stack):
 
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
+        # create EFS
 
-        # The code that defines your stack goes here
+        # create lambda -> start ec2 instance
+
+        # create s3 glacier vault
+
+        # create SNS topic
