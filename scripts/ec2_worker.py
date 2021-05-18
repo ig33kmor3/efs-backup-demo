@@ -6,10 +6,11 @@ import re
 from typing import BinaryIO
 from botocore.exceptions import ClientError
 
-# set environment variables
+# set variables
 WORKER_PROFILE = os.getenv('WORKER_AWS_PROFILE', 'default')  # optional; defaults to iam role
 VAULT = os.environ['VAULT']  # throw error if not set
 SOURCE_DIR = os.environ['SOURCE_DIR']  # throw error if not set
+GLACIER_RETRIEVAL_TIER = 'Expedited'  # available in 1 -5 minutes; default is Standard
 
 # configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
@@ -66,7 +67,10 @@ def upload_s3_glacier(items: list[str]) -> list:
 # execute upload to s3 glacier and kickoff job for inventory-retrieval
 archives = upload_s3_glacier(source_files)
 if len(archives) != 0:
-    job = glacier.initiate_job(vaultName=VAULT, jobParameters={'Type': 'inventory-retrieval'})
+    job = glacier.initiate_job(vaultName=VAULT, jobParameters={
+        'Type': 'inventory-retrieval',
+        'Tier': GLACIER_RETRIEVAL_TIER
+    })
     for archive in archives:
         logging.info(f'Archive {archive["archiveId"]} added to {VAULT}')
     logging.info(f'Inventory started and can be queried at {job["jobId"]}')
