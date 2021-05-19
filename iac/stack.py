@@ -7,7 +7,6 @@ from aws_cdk import (
     aws_sns as sns,
     aws_sns_subscriptions as subscriptions
 )
-from aws_cdk.core import Stack
 
 
 class EfsBackupDemoStack(cdk.Stack):
@@ -81,14 +80,13 @@ class EfsBackupDemoStack(cdk.Stack):
         user_data.add_commands(
             "yum check-update -y", "yum upgrade -y", "yum install -y amazon-efs-utils", "yum install -y nfs-utils",
             "file_system_id_1=" + file_system.file_system_id, "efs_mount_point_1=/mnt/efs/fs1",
-            "mkdir -p ${efs_mount_point_1}",
-            "test -f /sbin/mount.efs && echo ${file_system_id_1}:/ ${efs_mount_point_1} efs defaults,_netdev >> /etc/fstab || "
-            + "echo ${file_system_id_1}.efs." + self.REGION
-            + ".amazonaws.com:/ ${efs_mount_point_1} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0 >> /etc/fstab",
-            "mount -a -t efs,nfs4 defaults"
+            "mkdir -p ${efs_mount_point_1}", "test -f /sbin/mount.efs && echo ${file_system_id_1}:/ "
+            + "${efs_mount_point_1} efs defaults,_netdev >> /etc/fstab || echo ${file_system_id_1}.efs." + self.REGION
+            + ".amazonaws.com:/ ${efs_mount_point_1} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,"
+            + "timeo=600,retrans=2,noresvport,_netdev 0 0 >> /etc/fstab", "mount -a -t efs,nfs4 defaults"
         )
 
-        # create two ec2 instances; one for NFS and one for Worker
+        # create two ec2 instances; one for NFS and one for Worker to perform backups
         app_server = ec2.Instance(
             self, id='AppServer',
             vpc=vpc,
@@ -102,7 +100,7 @@ class EfsBackupDemoStack(cdk.Stack):
 
         app_server.user_data.add_commands(
             'sudo mkdir -p /mnt/efs/fs1/app-data',
-            'sudo chown ec2-user:ec2-user /mnt/efs/fs1/app-data'
+            'sudo chown -R ec2-user:ec2-user /mnt/efs/fs1/app-data'
         )
 
         worker_server = ec2.Instance(
@@ -118,4 +116,4 @@ class EfsBackupDemoStack(cdk.Stack):
 
         # create s3 glacier vault and post to SNS topic
 
-        # create lambda -> start ec2 instance
+        # create lambda -> start ec2 instance and run worker backup script
