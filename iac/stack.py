@@ -3,12 +3,15 @@ import os
 from aws_cdk import (
     core as cdk,
     aws_efs as efs,
-    aws_ec2 as ec2
+    aws_ec2 as ec2,
+    aws_sns as sns,
+    aws_sns_subscriptions as subscriptions
 )
 
 
 class EfsBackupDemoStack(cdk.Stack):
     VPC_ID = os.environ['VPC_ID']
+    NOTIFICATION_EMAIL = os.environ['NOTIFICATION_EMAIL']
 
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -26,6 +29,7 @@ class EfsBackupDemoStack(cdk.Stack):
         )
 
         file_system_sg.add_ingress_rule(
+            self,
             peer=ec2.Peer.ipv4(vpc.vpc_cidr_block),
             connection=ec2.Port.tcp(2049),
             description='efs-dev access'
@@ -42,8 +46,20 @@ class EfsBackupDemoStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.DESTROY  # demo purposes only
         )
 
-        # create lambda -> start ec2 instance
+        # create SNS topic and subscription for notifications
+        topic = sns.Topic(
+            self, 'EFSandGlacierJobs',
+            display_name='EFS and Glacier job notification topic',
+            topic_name='EfsAndGlacierTopic'
+        )
 
-        # create SNS topic for notifications
+        topic.add_subscription(
+            self,
+            subscriptions.EmailSubscription(self.NOTIFICATION_EMAIL, json=True)
+        )
+
+        topic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
 
         # create s3 glacier vault and post to SNS topic
+
+        # create lambda -> start ec2 instance

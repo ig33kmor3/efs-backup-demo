@@ -11,6 +11,7 @@ export VPC_ID=XXX
 export ACCOUNT_ID=XXX
 export REGION=XXX
 export WORKER_INSTANCE_ID=XXX
+export NOTIFICATION_EMAIL=XXX
 ```
 
 Ec2 Worker Variables
