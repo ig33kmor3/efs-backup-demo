@@ -5,7 +5,8 @@ from aws_cdk import (
     aws_efs as efs,
     aws_ec2 as ec2,
     aws_sns as sns,
-    aws_sns_subscriptions as subscriptions
+    aws_sns_subscriptions as subscriptions,
+    aws_s3 as s3
 )
 
 
@@ -55,7 +56,7 @@ class EfsBackupDemoStack(cdk.Stack):
             topic_name='EfsAndGlacierTopic'
         )
 
-        topic.add_subscription(subscriptions.EmailSubscription(self.NOTIFICATION_EMAIL, json=True))
+        topic.add_subscription(subscriptions.EmailSubscription(self.NOTIFICATION_EMAIL))
 
         topic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
 
@@ -114,6 +115,49 @@ class EfsBackupDemoStack(cdk.Stack):
             user_data=user_data
         )
 
-        # create s3 glacier vault and post to SNS topic
+        # create s3 bucket with glacier lifecycle policy
+        s3_bucket = s3.Bucket(
+            self, 'EfsS3Backup',
+            bucket_name=f'efs-backup-{cdk.Stack.of(self).account}',
+            versioned=True,
+            enforce_ssl=True,
+            auto_delete_objects=True,
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    id='budget-lifecycle',
+                    enabled=True,
+                    abort_incomplete_multipart_upload_after=cdk.Duration.days(30),
+                    noncurrent_version_transitions=[
+                        s3.NoncurrentVersionTransition(
+                            storage_class=s3.StorageClass.INFREQUENT_ACCESS,
+                            transition_after=cdk.Duration.days(60)
+                        ),
+                        s3.NoncurrentVersionTransition(
+                            storage_class=s3.StorageClass.GLACIER,
+                            transition_after=cdk.Duration.days(90)
+                        ),
+                        s3.NoncurrentVersionTransition(
+                            storage_class=s3.StorageClass.DEEP_ARCHIVE,
+                            transition_after=cdk.Duration.days(365)
+                        )
+                    ],
+                    transitions=[
+                        s3.Transition(
+                            storage_class=s3.StorageClass.INFREQUENT_ACCESS,
+                            transition_after=cdk.Duration.days(60)
+                        ),
+                        s3.Transition(
+                            storage_class=s3.StorageClass.GLACIER,
+                            transition_after=cdk.Duration.days(90)
+                        ),
+                        s3.Transition(
+                            storage_class=s3.StorageClass.DEEP_ARCHIVE,
+                            transition_after=cdk.Duration.days(365)
+                        )
+                    ]
+                )
+            ],
+            removal_policy=cdk.RemovalPolicy.DESTROY
+        )
 
         # create lambda -> start ec2 instance and run worker backup script

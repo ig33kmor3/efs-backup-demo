@@ -61,7 +61,7 @@ $ pip freeze > requirements.txt
 Update dependencies currently installed:
 
 ```
-$ pip install -r requirements --upgrade
+$ pip install -r requirements.txt --upgrade
 ```
 
 AWS cli get job status:
