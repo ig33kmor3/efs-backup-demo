@@ -163,7 +163,7 @@ class EfsBackupDemoStack(cdk.Stack):
         )
 
         worker_server.user_data.add_commands(
-            "sudo yum update && sudo yum install python38",
+            "sudo yum update -y && sudo yum install python38 -y",
             f"echo 'export BUCKET_NAME={bucket_name}' >> /home/ec2-user/.bashrc",
             f"echo 'export TOPIC_ARN={topic.topic_arn}' >> /home/ec2-user/.bashrc",
             f"echo 'export SOURCE_DIR=/mnt/efs/fs1/app-data' >> /home/ec2-user/.bashrc"

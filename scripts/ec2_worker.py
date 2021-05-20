@@ -1,5 +1,6 @@
 import os
 import logging
+import datetime
 import boto3
 import pathlib
 import re
@@ -8,10 +9,9 @@ from botocore.exceptions import ClientError
 
 # set variables
 WORKER_PROFILE = os.getenv('WORKER_AWS_PROFILE', 'default')  # optional; defaults to iam role
-VAULT = os.environ['VAULT']  # throw error if not set
 SOURCE_DIR = os.environ['SOURCE_DIR']  # throw error if not set
 BUCKET_NAME = os.environ['BUCKET_NAME']  # throw error if not set
-GLACIER_RETRIEVAL_TIER = 'Expedited'  # available in 1 -5 minutes; default is Standard
+TOPIC_ARN = os.environ['TOPIC_ARN']  # throw error if not set
 
 # configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
@@ -38,6 +38,18 @@ for root, directories, files in os.walk(source_folder, topdown=False):
             source_files.append(filePath)
 
 
+# publish to sns and notify administrator
+def notify_administrator(success: bool) -> None:
+    sns.publish(
+        TopicArn=TOPIC_ARN,
+        Subject=f"EFS Backup Notification - {'Success' if success else 'Failure'}",
+        Message=f"Successfully backup up EFS to S3 on {datetime.datetime.now(datetime.timezone.utc)}!"
+        if success
+        else f"Failed backup up of EFS to S3 on {datetime.datetime.now(datetime.timezone.utc)}! " +
+             "Check bucket for logs."
+    )
+
+
 # convert files to streams
 def create_file_stream(source_file: str) -> BinaryIO:
     try:
@@ -45,6 +57,7 @@ def create_file_stream(source_file: str) -> BinaryIO:
         return object_data
     except Exception as e:
         logging.error(e)
+        notify_administrator(success=False)
         exit()
 
 
@@ -59,9 +72,11 @@ def upload_s3_glacier(items: list[str]) -> None:
         except ClientError as e:
             logging.error(e)
             exit()
+            notify_administrator(success=False)
         finally:
             file_stream.close()
 
 
-# execute upload to s3 glacier and kickoff job for inventory-retrieval
+# execute upload to s3 glacier and notify administrator
 upload_s3_glacier(source_files)
+notify_administrator(success=True)
