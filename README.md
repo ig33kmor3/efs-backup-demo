@@ -20,6 +20,7 @@ EC2 Worker Variables (Automatically Set by IAC)
 ```bash
 export SOURCE_DIR=XXX
 export BUCKET_NAME=XXX
+export TOPIC_ARN=XXX
 ```
 
 Attach IAM role to EC2 instance that can communicate with S3 Glacier and SNS Topic.

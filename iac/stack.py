@@ -1,5 +1,4 @@
 import os
-import uuid
 
 from aws_cdk import (
     core as cdk,
@@ -12,19 +11,21 @@ from aws_cdk import (
 
 
 class EfsBackupDemoStack(cdk.Stack):
-    VPC_ID = os.environ['VPC_ID']  # throw error if not set
-    NOTIFICATION_EMAIL = os.environ['NOTIFICATION_EMAIL']  # throw error if not set
-    KEY_PAIR_NAME = os.environ['KEY_PAIR_NAME']  # throw error if not set
-    REGION = os.environ['REGION']  # throw error if not set
-    BUCKET_NAME = f'efs-backup-{uuid.uuid4()}'
 
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        # set variables
+        vpc_id = os.environ['VPC_ID']  # throw error if not set
+        notification_email = os.environ['NOTIFICATION_EMAIL']  # throw error if not set
+        key_pair_name = os.environ['KEY_PAIR_NAME']  # throw error if not set
+        region = os.environ['REGION']  # throw error if not set
+        bucket_name = f'efs-backup-{cdk.Stack.of(self).account}'
+
         # import existing infrastructure
         vpc = ec2.Vpc.from_lookup(
             self, 'Vpc',
-            vpc_id=self.VPC_ID
+            vpc_id=vpc_id
         )
 
         # create EFS security group with generous rules
@@ -58,7 +59,7 @@ class EfsBackupDemoStack(cdk.Stack):
             topic_name='EfsAndGlacierTopic'
         )
 
-        topic.add_subscription(subscriptions.EmailSubscription(self.NOTIFICATION_EMAIL))
+        topic.add_subscription(subscriptions.EmailSubscription(notification_email))
 
         topic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
 
@@ -84,52 +85,17 @@ class EfsBackupDemoStack(cdk.Stack):
             "yum check-update -y", "yum upgrade -y", "yum install -y amazon-efs-utils", "yum install -y nfs-utils",
             "file_system_id_1=" + file_system.file_system_id, "efs_mount_point_1=/mnt/efs/fs1",
             "mkdir -p ${efs_mount_point_1}", "test -f /sbin/mount.efs && echo ${file_system_id_1}:/ "
-            + "${efs_mount_point_1} efs defaults,_netdev >> /etc/fstab || echo ${file_system_id_1}.efs." + self.REGION
+            + "${efs_mount_point_1} efs defaults,_netdev >> /etc/fstab || echo ${file_system_id_1}.efs." + region
             + ".amazonaws.com:/ ${efs_mount_point_1} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,"
             + "timeo=600,retrans=2,noresvport,_netdev 0 0 >> /etc/fstab", "mount -a -t efs,nfs4 defaults"
-        )
-
-        # create two ec2 instances; one for NFS and one for Worker to perform backups
-        app_server = ec2.Instance(
-            self, id='AppServer',
-            vpc=vpc,
-            instance_name='app-server',
-            instance_type=ec2.InstanceType('t2.xlarge'),
-            machine_image=ec2.MachineImage.latest_amazon_linux(),
-            key_name=self.KEY_PAIR_NAME,
-            security_group=ec2_sg,
-            user_data=user_data
-        )
-
-        app_server.user_data.add_commands(
-            'sudo mkdir -p /mnt/efs/fs1/app-data',
-            'sudo chown -R ec2-user:ec2-user /mnt/efs/fs1/app-data'
-        )
-
-        worker_server = ec2.Instance(
-            self, id='WorkerServer',
-            vpc=vpc,
-            instance_name='worker-server',
-            instance_type=ec2.InstanceType('t2.xlarge'),
-            machine_image=ec2.MachineImage.latest_amazon_linux(),
-            key_name=self.KEY_PAIR_NAME,
-            security_group=ec2_sg,
-            user_data=user_data
-        )
-
-        worker_server.user_data.add_commands(
-            "sudo yum update && sudo yum install python38",
-            f"echo 'export BUCKET_NAME={self.BUCKET_NAME}' >> /home/ec2-user/.bashrc",
-            f"echo 'export SOURCE_DIR=/mnt/efs/fs1/app-data' >> /home/ec2-user/.bashrc"
         )
 
         # create s3 bucket with glacier lifecycle policy
         s3_bucket = s3.Bucket(
             self, 'EfsS3Backup',
-            bucket_name=self.BUCKET_NAME,
+            bucket_name=bucket_name,
             versioned=True,
             enforce_ssl=True,
-            auto_delete_objects=True,
             lifecycle_rules=[
                 s3.LifecycleRule(
                     id='budget-lifecycle',
@@ -165,9 +131,46 @@ class EfsBackupDemoStack(cdk.Stack):
                     ]
                 )
             ],
-            removal_policy=cdk.RemovalPolicy.DESTROY
+            removal_policy=cdk.RemovalPolicy.RETAIN
         )
 
+        # create two ec2 instances; one for NFS and one for Worker to perform backups
+        app_server = ec2.Instance(
+            self, id='AppServer',
+            vpc=vpc,
+            instance_name='app-server',
+            instance_type=ec2.InstanceType('t2.xlarge'),
+            machine_image=ec2.MachineImage.latest_amazon_linux(),
+            key_name=key_pair_name,
+            security_group=ec2_sg,
+            user_data=user_data
+        )
+
+        app_server.user_data.add_commands(
+            'sudo mkdir -p /mnt/efs/fs1/app-data',
+            'sudo chown -R ec2-user:ec2-user /mnt/efs/fs1/app-data'
+        )
+
+        worker_server = ec2.Instance(
+            self, id='WorkerServer',
+            vpc=vpc,
+            instance_name='worker-server',
+            instance_type=ec2.InstanceType('t2.xlarge'),
+            machine_image=ec2.MachineImage.latest_amazon_linux(),
+            key_name=key_pair_name,
+            security_group=ec2_sg,
+            user_data=user_data
+        )
+
+        worker_server.user_data.add_commands(
+            "sudo yum update && sudo yum install python38",
+            f"echo 'export BUCKET_NAME={bucket_name}' >> /home/ec2-user/.bashrc",
+            f"echo 'export TOPIC_ARN={topic.topic_arn}' >> /home/ec2-user/.bashrc",
+            f"echo 'export SOURCE_DIR=/mnt/efs/fs1/app-data' >> /home/ec2-user/.bashrc"
+        )
+
+        # grant ec2 worker permissions to interact with s3 and sns
         s3_bucket.grant_read_write(worker_server)
+        topic.grant_publish(worker_server)
 
         # create lambda -> start ec2 instance and run worker backup script
