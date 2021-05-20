@@ -6,7 +6,8 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_sns as sns,
     aws_sns_subscriptions as subscriptions,
-    aws_s3 as s3
+    aws_s3 as s3,
+    aws_lambda as _lambda
 )
 
 
@@ -94,6 +95,7 @@ class EfsBackupDemoStack(cdk.Stack):
         s3_bucket = s3.Bucket(
             self, 'EfsS3Backup',
             bucket_name=bucket_name,
+            auto_delete_objects=True,
             versioned=True,
             enforce_ssl=True,
             lifecycle_rules=[
@@ -131,7 +133,7 @@ class EfsBackupDemoStack(cdk.Stack):
                     ]
                 )
             ],
-            removal_policy=cdk.RemovalPolicy.RETAIN
+            removal_policy=cdk.RemovalPolicy.DESTROY
         )
 
         # create two ec2 instances; one for NFS and one for Worker to perform backups
@@ -174,3 +176,12 @@ class EfsBackupDemoStack(cdk.Stack):
         topic.grant_publish(worker_server)
 
         # create lambda -> start ec2 instance and run worker backup script
+        lambda_function = _lambda.Function(
+            self, 'LambdaWorker',
+            function_name='LambdaWorker',
+            description='Orchestrate EFS backups',
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            handler='lambda_worker.handler',
+            code=_lambda.Code.from_asset('lambda'),
+            memory_size=256
+        )

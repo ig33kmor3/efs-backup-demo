@@ -4,7 +4,7 @@
 
 Set the following environment variables:
 
-Local IaC Variables:
+Local IaC Env Variables:
 
 ```bash
 export WORKER_AWS_PROFILE=XXX
@@ -23,7 +23,11 @@ export BUCKET_NAME=XXX
 export TOPIC_ARN=XXX
 ```
 
-Attach IAM role to EC2 instance that can communicate with S3 Glacier and SNS Topic.
+Lambda Worker Env Variables (Automatically Set by IAC)
+
+```bash
+export INSTANCE_ID=XXX
+```
 
 ## Development
 
@@ -38,12 +42,6 @@ Activate MacOS/Linux virtual environment:
 
 ```
 $ source .venv/bin/activate
-```
-
-Activate Windows virtual environment:
-
-```
-% .venv\Scripts\activate.bat
 ```
 
 Once the virtualenv is activated, you can install the required dependencies:
@@ -62,12 +60,6 @@ Update dependencies currently installed:
 
 ```
 $ pip install -r requirements.txt --upgrade
-```
-
-AWS cli get job status:
-
-```
-$ aws glacier describe-job --account-id XXX --vault-name XXX --job-id XXX--profile XXX
 ```
 
 At this point you can now synthesize the CloudFormation template for this code.
