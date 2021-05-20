@@ -4,23 +4,22 @@
 
 Set the following environment variables:
 
-IaC Variables:
+Local IaC Variables:
 
 ```bash
+export WORKER_AWS_PROFILE=XXX
 export VPC_ID=XXX
 export ACCOUNT_ID=XXX
 export REGION=XXX
-export WORKER_INSTANCE_ID=XXX
 export KEY_PAIR_NAME=XXX
 export NOTIFICATION_EMAIL=XXX
 ```
 
-Ec2 Worker Variables
+EC2 Worker Variables (Automatically Set by IAC)
 
 ```bash
-export WORKER_AWS_PROFILE=XXX
-export VAULT=XXX
 export SOURCE_DIR=XXX
+export BUCKET_NAME=XXX
 ```
 
 Attach IAM role to EC2 instance that can communicate with S3 Glacier and SNS Topic.

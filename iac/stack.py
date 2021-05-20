@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from aws_cdk import (
     core as cdk,
@@ -15,6 +16,7 @@ class EfsBackupDemoStack(cdk.Stack):
     NOTIFICATION_EMAIL = os.environ['NOTIFICATION_EMAIL']  # throw error if not set
     KEY_PAIR_NAME = os.environ['KEY_PAIR_NAME']  # throw error if not set
     REGION = os.environ['REGION']  # throw error if not set
+    BUCKET_NAME = f'efs-backup-{uuid.uuid4()}'
 
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -115,10 +117,15 @@ class EfsBackupDemoStack(cdk.Stack):
             user_data=user_data
         )
 
+        worker_server.user_data.add_commands(
+            f"echo 'export BUCKET_NAME={self.BUCKET_NAME}' >> /home/ec2-user/.bashrc",
+            f"echo 'export SOURCE_DIR=/mnt/efs/fs1/app-data' >> /home/ec2-user/.bashrc"
+        )
+
         # create s3 bucket with glacier lifecycle policy
         s3_bucket = s3.Bucket(
             self, 'EfsS3Backup',
-            bucket_name=f'efs-backup-{cdk.Stack.of(self).account}',
+            bucket_name=self.BUCKET_NAME,
             versioned=True,
             enforce_ssl=True,
             auto_delete_objects=True,
@@ -159,5 +166,7 @@ class EfsBackupDemoStack(cdk.Stack):
             ],
             removal_policy=cdk.RemovalPolicy.DESTROY
         )
+
+        s3_bucket.grant_read_write(worker_server)
 
         # create lambda -> start ec2 instance and run worker backup script
