@@ -22,12 +22,18 @@ class EfsBackupDemoStack(cdk.Stack):
         notification_email = os.environ['NOTIFICATION_EMAIL']  # throw error if not set
         key_pair_name = os.environ['KEY_PAIR_NAME']  # throw error if not set
         region = os.environ['REGION']  # throw error if not set
-        bucket_name = f'efs-backup-{cdk.Stack.of(self).account}'
+        efs_bucket_name = f'efs-backup-{cdk.Stack.of(self).account}'
+        worker_bucket_name = os.environ['WORKER_BUCKET_NAME']  # throw error if not set ; location of worker script
 
-        # import existing infrastructure
+        # import existing cloud infrastructure
         vpc = ec2.Vpc.from_lookup(
             self, 'Vpc',
             vpc_id=vpc_id
+        )
+
+        worker_s3_bucket = s3.Bucket.from_bucket_name(
+            self, 'WorkerS3Bucket',
+            bucket_name=worker_bucket_name
         )
 
         # create EFS security group with generous rules
@@ -55,14 +61,14 @@ class EfsBackupDemoStack(cdk.Stack):
         )
 
         # create SNS topic and subscription for notifications
-        emailTopic = sns.Topic(
+        email_topic = sns.Topic(
             self, 'EFSandGlacierJobsTopic',
             display_name='EFS and Glacier Job Notification Topic',
             topic_name='EfsAndGlacierTopic'
         )
 
-        emailTopic.add_subscription(subscriptions.EmailSubscription(notification_email))
-        emailTopic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
+        email_topic.add_subscription(subscriptions.EmailSubscription(notification_email))
+        email_topic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
 
         # create ec2 security group to allow internal ssh
         ec2_sg = ec2.SecurityGroup(
@@ -92,9 +98,9 @@ class EfsBackupDemoStack(cdk.Stack):
         )
 
         # create s3 bucket with glacier lifecycle policy
-        s3_bucket = s3.Bucket(
+        efs_s3_bucket = s3.Bucket(
             self, 'EfsS3Backup',
-            bucket_name=bucket_name,
+            bucket_name=efs_bucket_name,
             auto_delete_objects=True,
             versioned=True,
             enforce_ssl=True,
@@ -164,16 +170,23 @@ class EfsBackupDemoStack(cdk.Stack):
             user_data=user_data
         )
 
+        worker_server.user_data.add_s3_download_command(
+            bucket=worker_s3_bucket,
+            bucket_key='ec2_worker.py',
+            local_file='/home/ec2-user/ec2_worker.py',
+        )
+
         worker_server.user_data.add_commands(
             "sudo yum update -y && sudo yum install python38 -y",
-            f"echo 'export BUCKET_NAME={bucket_name}' >> /home/ec2-user/.bashrc",
-            f"echo 'export TOPIC_ARN={emailTopic.topic_arn}' >> /home/ec2-user/.bashrc",
+            f"echo 'export BUCKET_NAME={efs_s3_bucket.bucket_name}' >> /home/ec2-user/.bashrc",
+            f"echo 'export EMAIL_TOPIC_ARN={email_topic.topic_arn}' >> /home/ec2-user/.bashrc",
             "echo 'export SOURCE_DIR=/mnt/efs/fs1/app-data' >> /home/ec2-user/.bashrc"
         )
 
         # grant ec2 worker permissions to interact with s3 and sns
-        s3_bucket.grant_read_write(worker_server)
-        emailTopic.grant_publish(worker_server)
+        efs_s3_bucket.grant_read_write(worker_server)
+        worker_s3_bucket.grant_read(worker_server)
+        email_topic.grant_publish(worker_server)
 
         # create lambda -> start ec2 instance and run worker backup script
         lambda_function = _lambda.Function(
@@ -203,11 +216,14 @@ class EfsBackupDemoStack(cdk.Stack):
         )
 
         # create SNS topic and subscription for lambda to manage ec2 worker
-        lambdaTopic = sns.Topic(
+        lambda_topic = sns.Topic(
             self, 'LambdaWorkerTopic',
             display_name='Topic to Trigger Lambda Worker for EC2',
             topic_name='LambdaWorkerTopic'
         )
 
-        lambdaTopic.add_subscription(subscriptions.LambdaSubscription(lambda_function))
-        lambdaTopic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
+        lambda_topic.add_subscription(subscriptions.LambdaSubscription(lambda_function))
+        lambda_topic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
+        worker_server.user_data.add_commands(
+            f"echo 'export LAMBDA_TOPIC_ARN={lambda_topic.topic_arn}' >> /home/ec2-user/.bashrc"
+        )

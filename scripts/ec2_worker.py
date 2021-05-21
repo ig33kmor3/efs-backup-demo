@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError
 # set variables
 WORKER_PROFILE = os.getenv('WORKER_AWS_PROFILE', 'default')  # optional; defaults to iam role
 SOURCE_DIR = os.environ['SOURCE_DIR']  # throw error if not set
-BUCKET_NAME = os.environ['BUCKET_NAME']  # throw error if not set
+EFS_BUCKET_NAME = os.environ['EFS_BUCKET_NAME']  # throw error if not set
 TOPIC_ARN = os.environ['TOPIC_ARN']  # throw error if not set
 
 # configure logging
@@ -43,9 +43,9 @@ def notify_administrator(success: bool) -> None:
     sns.publish(
         TopicArn=TOPIC_ARN,
         Subject=f"EFS Backup Notification - {'Success' if success else 'Failure'}",
-        Message=f"Successfully backup up EFS to S3 on {datetime.datetime.now(datetime.timezone.utc)}!"
+        Message=f"Successfully backed up of EFS to S3 on {datetime.datetime.now(datetime.timezone.utc)}!"
         if success
-        else f"Failed backup up of EFS to S3 on {datetime.datetime.now(datetime.timezone.utc)}! " +
+        else f"Failed back up of EFS to S3 on {datetime.datetime.now(datetime.timezone.utc)}! " +
              "Check bucket for logs."
     )
 
@@ -67,8 +67,8 @@ def upload_s3_glacier(items: list[str]) -> None:
         head, tail = os.path.split(item)  # get path and filename
         file_stream = create_file_stream(item)  # convert to binary
         try:
-            logging.info(f'Uploading {item} to {BUCKET_NAME} ...')
-            s3.upload_fileobj(file_stream, BUCKET_NAME, tail)
+            logging.info(f'Uploading {item} to {EFS_BUCKET_NAME} ...')
+            s3.upload_fileobj(file_stream, EFS_BUCKET_NAME, tail)
         except ClientError as e:
             logging.error(e)
             exit()
