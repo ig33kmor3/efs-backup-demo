@@ -1,4 +1,8 @@
-# AWS EFS IaC and Backup to S3 Glacier
+# AWS EFS Infrastructure as Code and Backup to S3 Glacier
+
+## Architecture
+
+![picture](efs-demo.png)
 
 ## Setup
 
