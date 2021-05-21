@@ -6,9 +6,7 @@
 
 ## Setup
 
-Set the following environment variables:
-
-Local IaC Env Variables:
+Before you start, set the following local environment variables on your host (Linux/MacOS):
 
 ```bash
 export WORKER_AWS_PROFILE=XXX
@@ -17,17 +15,20 @@ export ACCOUNT_ID=XXX
 export REGION=XXX
 export KEY_PAIR_NAME=XXX
 export NOTIFICATION_EMAIL=XXX
+export WORKER_BUCKET_NAME=XXX
 ```
 
-EC2 Worker Variables (Automatically Set by IAC)
+Upload ```scrips/lambda_worker.py``` to the root of an S3 Bucket - ```WORKER_BUCKET_NAME``` - in your AWS Account. 
+
+The following EC2 Worker variables will be automatically set by IaC for you during deployment:
 
 ```bash
 export SOURCE_DIR=XXX
-export BUCKET_NAME=XXX
+export EFS_BUCKET_NAME=XXX
 export TOPIC_ARN=XXX
 ```
 
-Lambda Worker Env Variables (Automatically Set by IAC)
+The following Lambda Worker environment variables will be automatically set by IaC for you during deployment:
 
 ```bash
 export INSTANCE_ID=XXX
