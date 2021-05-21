@@ -7,7 +7,8 @@ from aws_cdk import (
     aws_sns as sns,
     aws_sns_subscriptions as subscriptions,
     aws_s3 as s3,
-    aws_lambda as _lambda
+    aws_lambda as _lambda,
+    aws_iam as iam
 )
 
 
@@ -54,15 +55,14 @@ class EfsBackupDemoStack(cdk.Stack):
         )
 
         # create SNS topic and subscription for notifications
-        topic = sns.Topic(
-            self, 'EFSandGlacierJobs',
+        emailTopic = sns.Topic(
+            self, 'EFSandGlacierJobsTopic',
             display_name='EFS and Glacier Job Notification Topic',
             topic_name='EfsAndGlacierTopic'
         )
 
-        topic.add_subscription(subscriptions.EmailSubscription(notification_email))
-
-        topic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
+        emailTopic.add_subscription(subscriptions.EmailSubscription(notification_email))
+        emailTopic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
 
         # create ec2 security group to allow internal ssh
         ec2_sg = ec2.SecurityGroup(
@@ -167,13 +167,13 @@ class EfsBackupDemoStack(cdk.Stack):
         worker_server.user_data.add_commands(
             "sudo yum update -y && sudo yum install python38 -y",
             f"echo 'export BUCKET_NAME={bucket_name}' >> /home/ec2-user/.bashrc",
-            f"echo 'export TOPIC_ARN={topic.topic_arn}' >> /home/ec2-user/.bashrc",
-            f"echo 'export SOURCE_DIR=/mnt/efs/fs1/app-data' >> /home/ec2-user/.bashrc"
+            f"echo 'export TOPIC_ARN={emailTopic.topic_arn}' >> /home/ec2-user/.bashrc",
+            "echo 'export SOURCE_DIR=/mnt/efs/fs1/app-data' >> /home/ec2-user/.bashrc"
         )
 
         # grant ec2 worker permissions to interact with s3 and sns
         s3_bucket.grant_read_write(worker_server)
-        topic.grant_publish(worker_server)
+        emailTopic.grant_publish(worker_server)
 
         # create lambda -> start ec2 instance and run worker backup script
         lambda_function = _lambda.Function(
@@ -183,5 +183,31 @@ class EfsBackupDemoStack(cdk.Stack):
             runtime=_lambda.Runtime.PYTHON_3_8,
             handler='lambda_worker.handler',
             code=_lambda.Code.from_asset('lambda'),
-            memory_size=256
+            memory_size=256,
+            environment={
+                'INSTANCE_ID': f'{worker_server.instance_id}'
+            }
         )
+
+        # add permissions to allow lambda to interact with ec2 instances
+        lambda_function.role.add_to_principal_policy(
+            iam.PolicyStatement(
+                actions=[
+                    'ec2:StartInstances',
+                    'ec2:StopInstances'
+                ],
+                resources=[
+                    f'arn:aws:ec2:*:{cdk.Stack.of(self).account}:instance/*'
+                ]
+            )
+        )
+
+        # create SNS topic and subscription for lambda to manage ec2 worker
+        lambdaTopic = sns.Topic(
+            self, 'LambdaWorkerTopic',
+            display_name='Topic to Trigger Lambda Worker for EC2',
+            topic_name='LambdaWorkerTopic'
+        )
+
+        lambdaTopic.add_subscription(subscriptions.LambdaSubscription(lambda_function))
+        lambdaTopic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
