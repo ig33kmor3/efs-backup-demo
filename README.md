@@ -25,7 +25,7 @@ Example command to upload file to S3 Bucket:
 aws s3 cp scripts/ec2_worker.py s3://${WORKER_BUCKET_NAME}/ec2_worker.py
 ```
 
-The following EC2 Worker variables will be automatically set by IaC for you during deployment:
+The following EC2 Worker environment variables will be automatically set by IaC for you during deployment:
 
 ```bash
 export SOURCE_DIR=XXX
