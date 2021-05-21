@@ -31,6 +31,7 @@ The following EC2 Worker environment variables will be automatically set by IaC 
 export SOURCE_DIR=XXX
 export EFS_BUCKET_NAME=XXX
 export EMAIL_TOPIC_ARN=XXX
+export LAMBDA_TOPIC_ARN=XXX
 ```
 
 The following Lambda Worker environment variables will be automatically set by IaC for you during deployment:
