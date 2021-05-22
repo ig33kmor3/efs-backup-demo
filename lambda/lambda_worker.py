@@ -10,7 +10,7 @@ def handler(event, context):
     # set variables
     ec2 = boto3.resource('ec2')
     instance = ec2.Instance(instance_id)
-    commands = json.load(event.body)
+    commands = json.loads(event['Records'][0]['Sns']['Message'])
 
     # start ec2 worker to execute backups
     try:

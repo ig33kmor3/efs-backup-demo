@@ -223,6 +223,7 @@ class EfsBackupDemoStack(cdk.Stack):
         )
 
         lambda_topic.add_subscription(subscriptions.LambdaSubscription(lambda_function))
+        lambda_topic.grant_publish(worker_server)
         lambda_topic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
         worker_server.user_data.add_commands(
             f"echo 'export LAMBDA_TOPIC_ARN={lambda_topic.topic_arn}' >> /home/ec2-user/.bashrc"

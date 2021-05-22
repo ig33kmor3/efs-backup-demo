@@ -55,13 +55,12 @@ def notify_administrator(success: bool) -> None:
 # publish to sns and invoke lambda
 def notify_lambda(is_start: bool) -> None:
     message = json.dumps({
-        'isStart': f'{is_start}'
+        'isStart': is_start
     })
 
     sns.publish(
         TopicArn=LAMBDA_TOPIC_ARN,
-        Message=message,
-        MessageStructure='json'
+        Message=message
     )
 
 
@@ -97,4 +96,4 @@ def upload_s3_glacier(items: 'list[str]') -> None:
 # execute upload to s3 glacier and notify administrator then shutdown ec2 worker
 upload_s3_glacier(source_files)
 notify_administrator(success=True)
-notify_lambda(is_start=True)
+notify_lambda(is_start=False)
