@@ -78,7 +78,7 @@ def create_file_stream(source_file: str) -> BinaryIO:
 
 
 # upload to files to s3 glacier
-def upload_s3_glacier(items: list[str]) -> None:
+def upload_s3_glacier(items: 'list[str]') -> None:
     for item in items:
         head, tail = os.path.split(item)  # get path and filename
         file_stream = create_file_stream(item)  # convert to binary
