@@ -25,6 +25,12 @@ Example command to upload file to S3 Bucket:
 aws s3 cp scripts/ec2_worker.py s3://${WORKER_BUCKET_NAME}/ec2_worker.py
 ```
 
+To simulate automated CloudWatch Events, run the following script to invoke LambdaWorker: 
+
+```bash
+python3 scripts/simulate_event.py
+```
+
 The following EC2 Worker environment variables will be automatically set by IaC for you during deployment:
 
 ```bash
