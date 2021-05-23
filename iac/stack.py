@@ -178,9 +178,13 @@ class EfsBackupDemoStack(cdk.Stack):
 
         worker_server.user_data.add_commands(
             "sudo yum update -y && sudo yum install python38 -y",
-            f"echo 'export BUCKET_NAME={efs_s3_bucket.bucket_name}' >> /home/ec2-user/.bashrc",
-            f"echo 'export EMAIL_TOPIC_ARN={email_topic.topic_arn}' >> /home/ec2-user/.bashrc",
-            "echo 'export SOURCE_DIR=/mnt/efs/fs1/app-data' >> /home/ec2-user/.bashrc"
+            "sudo python3 -m pip install boto3",
+            f"echo 'export EFS_BUCKET_NAME='{efs_s3_bucket.bucket_name}'' >> /home/ec2-user/.bashrc",
+            f"echo 'export EMAIL_TOPIC_ARN='{email_topic.topic_arn}'' >> /home/ec2-user/.bashrc",
+            f"echo 'export REGION='{cdk.Stack.of(self).region}'' >> /home/ec2-user/.bashrc",
+            "echo 'export SOURCE_DIR='/mnt/efs/fs1/app-data'' >> /home/ec2-user/.bashrc",
+            "echo '@reboot source ~/.bashrc && $(which python3) ~/ec2_worker.py >> ~/worker.log 2>&1' >> /home/ec2-user/cronjob",
+            "sudo crontab -u ec2-user /home/ec2-user/cronjob"
         )
 
         # grant ec2 worker permissions to interact with s3 and sns
@@ -226,5 +230,5 @@ class EfsBackupDemoStack(cdk.Stack):
         lambda_topic.grant_publish(worker_server)
         lambda_topic.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
         worker_server.user_data.add_commands(
-            f"echo 'export LAMBDA_TOPIC_ARN={lambda_topic.topic_arn}' >> /home/ec2-user/.bashrc"
+            f"echo 'export LAMBDA_TOPIC_ARN='{lambda_topic.topic_arn}'' >> /home/ec2-user/.bashrc"
         )

@@ -1,4 +1,5 @@
 import json
+import time
 import os
 import logging
 import datetime
@@ -9,7 +10,8 @@ from typing import BinaryIO
 from botocore.exceptions import ClientError
 
 # set variables
-WORKER_PROFILE = os.getenv('WORKER_AWS_PROFILE', 'default')  # optional; defaults to iam role
+WORKER_PROFILE = os.getenv('WORKER_AWS_PROFILE', 'ec2_role')  # set local credential or use ec2 role
+REGION = os.environ['REGION']
 SOURCE_DIR = os.environ['SOURCE_DIR']  # throw error if not set
 EFS_BUCKET_NAME = os.environ['EFS_BUCKET_NAME']  # throw error if not set
 EMAIL_TOPIC_ARN = os.environ['EMAIL_TOPIC_ARN']  # throw error if not set
@@ -18,8 +20,11 @@ LAMBDA_TOPIC_ARN = os.environ['LAMBDA_TOPIC_ARN']  # throw error if not set
 # configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
 
-# configure boto session
-session = boto3.Session(profile_name=WORKER_PROFILE)
+# configure boto session for either ec2 role or local profile
+if WORKER_PROFILE == 'ec2_role':
+    session = boto3.Session(region_name='us-west-2')
+else:
+    session = boto3.Session(profile_name=WORKER_PROFILE)
 
 # configure services being used for operation
 s3 = session.client('s3')
@@ -45,9 +50,9 @@ def notify_administrator(success: bool) -> None:
     sns.publish(
         TopicArn=EMAIL_TOPIC_ARN,
         Subject=f"EFS Backup Notification - {'Success' if success else 'Failure'}",
-        Message=f"Successfully backed up of EFS to S3 on {datetime.datetime.now(datetime.timezone.utc)}!"
+        Message=f"Successfully backed up [{len(source_files)}] files to S3 Glacier on {datetime.datetime.now(datetime.timezone.utc)}!"
         if success
-        else f"Failed back up of EFS to S3 on {datetime.datetime.now(datetime.timezone.utc)}! " +
+        else f"Failed back up of EFS to S3 Glacier on {datetime.datetime.now(datetime.timezone.utc)}! " +
              "Check bucket for logs."
     )
 
@@ -96,4 +101,6 @@ def upload_s3_glacier(items: 'list[str]') -> None:
 # execute upload to s3 glacier and notify administrator then shutdown ec2 worker
 upload_s3_glacier(source_files)
 notify_administrator(success=True)
+logging.info(f'Completed backup to {EFS_BUCKET_NAME}. Will gracefully shutdown in 60 seconds ...')
+time.sleep(60)
 notify_lambda(is_start=False)

@@ -28,6 +28,7 @@ aws s3 cp scripts/ec2_worker.py s3://${WORKER_BUCKET_NAME}/ec2_worker.py
 The following EC2 Worker environment variables will be automatically set by IaC for you during deployment:
 
 ```bash
+export REGION==XXX
 export SOURCE_DIR=XXX
 export EFS_BUCKET_NAME=XXX
 export EMAIL_TOPIC_ARN=XXX
